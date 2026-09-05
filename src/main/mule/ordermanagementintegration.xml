@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ca7bd255-043d-4546-994f-0b19a59f2917" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="ordermanagementintegrationFlow" doc:id="fd693669-18ef-4fad-90b1-3619c434c27f" >
+		<http:listener doc:name="Listener" doc:id="818e6787-b1b1-45d6-9641-7ee6bdf616a1" config-ref="HTTP_Listener_config" path="/orders"/>
+		<logger level="INFO" doc:name="Log Incoming Order" doc:id="6a908063-6f08-472c-8201-a7e2ff3e6fb7" message="#[payload]"/>
+		<validation:is-not-null doc:id="b316321d-de25-49d2-a493-ff2766cf81d5" value="#[payload.customerId]" message="customerId is required"/>
+		<validation:is-not-null doc:name="Is not null" doc:id="694b1f95-6b9e-4b36-bfd0-c11d9abc0e0f" value="#[payload.productId]" message="productId is required"/>
+		<validation:is-not-null doc:name="Is not null" doc:id="97f2fe63-3e17-4ea6-846f-fefdaa792029" value="#[payload.quantity]" message="quantity  is required"/>
+		<validation:is-true doc:name="Is true" doc:id="f4f4392c-4ab3-49e4-b693-2de90d2071b8" expression="#[payload.quantity &gt; 0]" message="quantity must be greater than 0"/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="14c3879c-82f9-4ce8-a616-3e1b4472af11" variableName="orderRequest"/>
+	</flow>
+	<flow name="ordermanagementintegrationFlow1" doc:id="ef739b40-b3a4-46d8-8abf-3a186239e31d" >
+		<http:listener doc:name="Listener" doc:id="79b7da40-5993-4502-af72-47bd3074ec17" config-ref="HTTP_Listener_config" path="/products/{productId}"/>
+		<ee:transform doc:name="Transform Message" doc:id="62c28ecf-eee6-4f5a-b518-ddc90a9c0e37" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    productId: attributes.uriParams.productId as Number,
+    productName: "Laptop",
+    price: 6000,
+    stock: 10
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
