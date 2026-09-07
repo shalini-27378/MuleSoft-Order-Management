@@ -9,110 +9,14 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ca7bd255-043d-4546-994f-0b19a59f2917" >
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
-	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="c811559f-f43e-492b-a27d-dcdd1c46a4c7" >
-		<http:request-connection host="dummyjson.com" port="443" protocol="HTTPS"/>
-	</http:request-config>
-	<http:request-config name="Notification_HTTP_Config" doc:name="HTTP Request configuration" doc:id="a48ab4cd-f604-4eea-9724-baa110a40804" >
-		<http:request-connection host="localhost" port="8082" />
-	</http:request-config>
-	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="873be473-ad8a-406d-9ffb-9c7eb1cc5d1e" >
-		<http:listener-connection host="0.0.0.0" port="8082" />
-	</http:listener-config>
 	<flow name="ordermanagementintegrationFlow" doc:id="fd693669-18ef-4fad-90b1-3619c434c27f" >
-		<http:listener doc:name="Listener" doc:id="818e6787-b1b1-45d6-9641-7ee6bdf616a1" config-ref="HTTP_Listener_config" path="/orders">
-			<http:error-response statusCode="#[vars.httpStatus]" />
-		</http:listener>
+		<http:listener doc:name="Listener" doc:id="818e6787-b1b1-45d6-9641-7ee6bdf616a1" config-ref="HTTP_Listener_config" path="/orders"/>
 		<logger level="INFO" doc:name="Log Incoming Order" doc:id="6a908063-6f08-472c-8201-a7e2ff3e6fb7" message="#[payload]"/>
 		<validation:is-not-null doc:id="b316321d-de25-49d2-a493-ff2766cf81d5" value="#[payload.customerId]" message="customerId is required"/>
 		<validation:is-not-null doc:name="Is not null" doc:id="694b1f95-6b9e-4b36-bfd0-c11d9abc0e0f" value="#[payload.productId]" message="productId is required"/>
 		<validation:is-not-null doc:name="Is not null" doc:id="97f2fe63-3e17-4ea6-846f-fefdaa792029" value="#[payload.quantity]" message="quantity  is required"/>
 		<validation:is-true doc:name="Is true" doc:id="f4f4392c-4ab3-49e4-b693-2de90d2071b8" expression="#[payload.quantity &gt; 0]" message="quantity must be greater than 0"/>
 		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="14c3879c-82f9-4ce8-a616-3e1b4472af11" variableName="orderRequest"/>
-		<http:request method="GET" doc:name="Request" doc:id="a299f026-a5dc-4ade-8c19-30a9a3d784e9" path="/products/#[vars.orderRequest.productId]" config-ref="HTTP_Request_configuration"/>
-		<choice doc:name="Choice" doc:id="c8c0e036-a7af-4a01-9c8b-7dab2ae61d3e" >
-			<when expression="#[payload.productId != null and payload.stock != null and vars.orderRequest.quantity &lt;= payload.stock]">
-				<logger level="INFO" doc:name="Logger" doc:id="c024c391-57ee-488a-a2c8-3a1a9fa2d418" message="Stock available"/>
-			</when>
-			<otherwise>
-				<choice doc:name="Choice" doc:id="988493fa-6f94-4f75-89a6-d69201ff9dcd" >
-					<when expression="#[payload.stock == null]">
-						<raise-error doc:name="Raise error" doc:id="e9a2a76d-3665-44e7-8d32-d36099a0ee54" type="APP:PRODUCT_NOT_FOUND" description="Product not found"/>
-					</when>
-					<otherwise >
-						<raise-error doc:name="Raise error" doc:id="c6a73714-36d6-419c-8017-042eff5992a2" type="APP:INSUFFICIENT_STOCK" description="Insufficient stock for requested product"/>
-					</otherwise>
-				</choice>
-			</otherwise>
-		</choice>
-		<ee:transform doc:name="Transform Message" doc:id="93c3ed10-4ea6-4489-bc86-195cd79e893d" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/json
----
-{
-    productId: vars.orderRequest.productId,
-    quantity: vars.orderRequest.quantity,
-    price: payload.price,
-    totalAmount: payload.price * vars.orderRequest.quantity,
-    discount: if ((payload.price * vars.orderRequest.quantity) > 10000)
-               (payload.price * vars.orderRequest.quantity) * 0.10
-               else 0,
-    finalAmount: if ((payload.price * vars.orderRequest.quantity) > 10000)
-                 (payload.price * vars.orderRequest.quantity) * 0.90
-                 else (payload.price * vars.orderRequest.quantity)
-}]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<http:request method="POST" doc:name="Request" doc:id="9840cd63-e60f-4698-9395-963b3ccbe370" path="/carts/add" config-ref="HTTP_Request_configuration">
-			<http:body ><![CDATA[#[%dw 2.0
-output application/json
----
-{
-    userId: vars.orderRequest.customerId,
-    products: [
-        {
-            id: vars.orderRequest.productId,
-            quantity: vars.orderRequest.quantity
-        }
-    ]
-}]]]></http:body>
-			<http:headers ><![CDATA[#[{
-    "Content-Type": "application/json"
-}]]]></http:headers>
-		</http:request>
-		<http:request method="POST" doc:name="Request" doc:id="7d8e300a-dfff-4fad-8ed6-e6f2162c0664" path="/notifications" config-ref="Notification_HTTP_Config"/>
-		<error-handler >
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="ON ERROR PROPAGATE" doc:id="3aeadcea-48e0-44cd-a4ab-8bf30d6cf917" type="VALIDATION:NULL">
-				<set-variable value='#["INVALID_REQUEST"]' doc:name="Set Variable" doc:id="d5e943d2-a613-47c3-b68b-c87d0d309b28" variableName="errorCode"/>
-				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    status: "FAILED",&#10;    errorCode: vars.errorCode,&#10;    message: "Invalid order request"&#10;}]' doc:name="Set Payload" doc:id="9296eef7-dcfc-47fd-95c0-f1a6c58c9d60" mimeType="application/json"/>
-			</on-error-propagate>
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6e86dc29-e3ad-42f9-a81f-726865893e69" type="HTTP:NOT_FOUND">
-				<set-variable value='#["PRODUCT_NOT_FOUND"]' doc:name="Set Variable" doc:id="f0eadcde-89b8-415d-87b9-e8426df4b443" variableName="errorCode"/>
-				<set-payload value='#[{&#10;    status: "FAILED",&#10;    errorCode: vars.errorCode,&#10;    message: "Product not found"&#10;}]' doc:name="Set Payload" doc:id="2772275a-f4b1-4c5e-a982-aea1ee4d0964" />
-			</on-error-propagate>
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="32f58892-3a71-42db-b2d2-aa4c9a5f1490" type="APP:INSUFFICIENT_STOCK">
-				<set-variable value='#["INSUFFICIENT_STOCK"]' doc:name="Set Variable" doc:id="295a4b1d-9ddc-4417-8645-04334242d751" variableName="errorCode"/>
-				<set-payload value='#[{&#10;    status: "FAILED",&#10;    errorCode: vars.errorCode,&#10;    message: "Insufficient stock for requested product"&#10;}]' doc:name="Set Payload" doc:id="7d687b4d-cd20-461c-8f6b-e2c7cdf2dc9b" />
-			</on-error-propagate>
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="e50c5308-1763-432e-8faf-1042037382b6" type="HTTP:CONNECTIVITY">
-				<set-variable value='#["EXTERNAL_API_ERROR"]' doc:name="Set Variable" doc:id="09525ad4-ce29-4299-a53f-f9639d26659c" variableName="errorCode"/>
-				<set-payload value='#[{&#10;    status: "FAILED",&#10;    errorCode: vars.errorCode,&#10;    message: "External service is unavailable"&#10;}]' doc:name="Set Payload" doc:id="5acfa236-5677-4c3f-a47b-17762662cb2b" />
-			</on-error-propagate>
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="efc6026e-c4cc-4a75-9eb3-c964daa2756c" type="ANY">
-				<set-variable value='#["INTERNAL_ERROR"]' doc:name="Set Variable" doc:id="0b3e62a5-c54c-4839-8ef3-19ce37e9415f" variableName="errorCode"/>
-				<set-payload value='#[{&#10;    status: "FAILED",&#10;    errorCode: vars.errorCode,&#10;    message: "Unexpected error occurred"&#10;}]' doc:name="Set Payload" doc:id="690b544c-520b-4605-b5ef-74c20077df54" />
-			</on-error-propagate>
-		</error-handler>
-	</flow>
-	<flow name="ordermanagementintegrationFlow2" doc:id="5efa13ef-6902-4d98-9d2e-d111554e1635" >
-		<http:listener doc:name="Listener" doc:id="18a5884a-b366-499c-bd28-fcad2a1fc71f" config-ref="HTTP_Listener_config1" path="/notifications"/>
-		<set-payload value='#[%dw 2.0
-output application/json
----
-{
-    success: true,
-    message: "Order notification sent successfully"
-}]' doc:name="Set Payload" doc:id="378d0da0-b795-4263-9c2a-464a8d275451" />
 	</flow>
 	<flow name="ordermanagementintegrationFlow1" doc:id="ef739b40-b3a4-46d8-8abf-3a186239e31d" >
 		<http:listener doc:name="Listener" doc:id="79b7da40-5993-4502-af72-47bd3074ec17" config-ref="HTTP_Listener_config" path="/products/{productId}"/>
