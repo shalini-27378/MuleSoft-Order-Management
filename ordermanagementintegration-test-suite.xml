@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+	xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+	<munit:config name="ordermanagementintegration-test-suite.xml" />
+
+	<munit:test name="ordermanagementintegrationFlow-test-success" doc:id="f9b4c029-1111-4444-8888-000000000001" description="Test valid order payload successfully sets orderRequest variable">
+		<munit:execution >
+			<munit:set-event doc:name="Set Input Payload" doc:id="f9b4c029-1111-4444-8888-000000000002">
+				<munit:payload value='#[{ "customerId": "C1001", "productId": 201, "quantity": 5 }]' mediaType="application/json" />
+			</munit:set-event>
+			<flow-ref doc:name="Flow-ref to ordermanagementintegrationFlow" doc:id="f9b4c029-1111-4444-8888-000000000003" name="ordermanagementintegrationFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-that doc:name="Assert orderRequest variable set" doc:id="f9b4c029-1111-4444-8888-000000000004" expression="#[vars.orderRequest]" is="#[munit-tools:notNullValue()]"/>
+			<munit-tools:assert-equals doc:name="Assert customerId" doc:id="f9b4c029-1111-4444-8888-000000000005" actual="#[vars.orderRequest.customerId]" expected='#["C1001"]'/>
+			<munit-tools:assert-equals doc:name="Assert quantity" doc:id="f9b4c029-1111-4444-8888-000000000006" actual="#[vars.orderRequest.quantity]" expected="#[5]"/>
+		</munit:validation>
+	</munit:test>
+
+	<munit:test name="ordermanagementintegrationFlow-test-invalid-quantity" doc:id="f9b4c029-2222-4444-8888-000000000001" description="Test validation error when quantity is non-positive" expectedErrorType="VALIDATION:INVALID_BOOLEAN">
+		<munit:execution >
+			<munit:set-event doc:name="Set Payload with Invalid Quantity" doc:id="f9b4c029-2222-4444-8888-000000000002">
+				<munit:payload value='#[{ "customerId": "C1001", "productId": 201, "quantity": 0 }]' mediaType="application/json" />
+			</munit:set-event>
+			<flow-ref doc:name="Flow-ref to ordermanagementintegrationFlow" doc:id="f9b4c029-2222-4444-8888-000000000003" name="ordermanagementintegrationFlow"/>
+		</munit:execution>
+	</munit:test>
+
+	<munit:test name="ordermanagementintegrationFlow1-test-success" doc:id="f9b4c029-3333-4444-8888-000000000001" description="Test product lookup flow returns transformed product detail JSON">
+		<munit:execution >
+			<munit:set-event doc:name="Set URI Params" doc:id="f9b4c029-3333-4444-8888-000000000002">
+				<munit:attributes value='#[{ uriParams: { "productId": "101" } }]' />
+			</munit:set-event>
+			<flow-ref doc:name="Flow-ref to ordermanagementintegrationFlow1" doc:id="f9b4c029-3333-4444-8888-000000000003" name="ordermanagementintegrationFlow1"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-equals doc:name="Assert productId" doc:id="f9b4c029-3333-4444-8888-000000000004" actual="#[payload.productId]" expected="#[101]"/>
+			<munit-tools:assert-equals doc:name="Assert productName" doc:id="f9b4c029-3333-4444-8888-000000000005" actual="#[payload.productName]" expected='#["Laptop"]'/>
+			<munit-tools:assert-equals doc:name="Assert price" doc:id="f9b4c029-3333-4444-8888-000000000006" actual="#[payload.price]" expected="#[6000]"/>
+			<munit-tools:assert-equals doc:name="Assert stock" doc:id="f9b4c029-3333-4444-8888-000000000007" actual="#[payload.stock]" expected="#[10]"/>
+		</munit:validation>
+	</munit:test>
+
+</mule>
